@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-import os
-import json
 import requests
+import json
+import time
 from flask import Flask, request, jsonify
 import threading
-import time
-from whatsapp_web import WhatsAppWeb
 import qrcode
 from io import BytesIO
 import base64
+import os
 
 class JinocaBot:
     def __init__(self):
@@ -23,10 +22,9 @@ class JinocaBot:
         
         self.conversations = {}
         self.qr_code = None
-        self.whatsapp = None
         
-        # Iniciar WhatsApp
-        self.start_whatsapp()
+        # Gerar QR Code
+        self.generate_qr_code()
 
     def setup_routes(self):
         """Configura as rotas da API"""
@@ -34,40 +32,147 @@ class JinocaBot:
         self.app.route('/qr')(self.qr_page)
         self.app.route('/chat', methods=['POST'])(self.chat)
         self.app.route('/status')(self.status)
-        self.app.route('/webhook', methods=['POST'])(self.webhook)
+        self.app.route('/send', methods=['POST'])(self.send_message)
 
     def home(self):
         return """
         <html>
-            <body style="text-align: center; font-family: Arial;">
-                <h1>🤖 Bot Jinoca - ONLINE</h1>
-                <p><a href="/qr">📱 Escanear QR Code</a></p>
-                <p><a href="/status">📊 Status</a></p>
-                <p><strong>IP:</strong> 142.93.190.157:3000</p>
+            <head>
+                <title>Jinoca Bot</title>
+                <style>
+                    body { 
+                        font-family: Arial, sans-serif; 
+                        text-align: center; 
+                        background: #f0f0f0;
+                        margin: 0;
+                        padding: 40px;
+                    }
+                    .container {
+                        background: white;
+                        padding: 30px;
+                        border-radius: 15px;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        max-width: 500px;
+                        margin: 0 auto;
+                    }
+                    h1 { color: #e91e63; }
+                    .btn {
+                        display: inline-block;
+                        background: #e91e63;
+                        color: white;
+                        padding: 12px 24px;
+                        text-decoration: none;
+                        border-radius: 25px;
+                        margin: 10px;
+                        font-weight: bold;
+                    }
+                    .btn:hover {
+                        background: #c2185b;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>🤖 Jinoca Bot - ONLINE</h1>
+                    <p><strong>IP:</strong> 142.93.190.157:3000</p>
+                    <a href="/qr" class="btn">📱 QR Code WhatsApp</a>
+                    <a href="/status" class="btn">📊 Status</a>
+                    <p style="margin-top: 30px; color: #666;">
+                        💬 Jinoca está pronta para conversas sarcásticas e divertidas!
+                    </p>
+                </div>
             </body>
         </html>
         """
+
+    def generate_qr_code(self):
+        """Gera QR Code para WhatsApp Web"""
+        try:
+            # Gerar QR Code para WhatsApp Web
+            qr_data = "https://web.whatsapp.com"
+            qr = qrcode.QRCode(version=1, box_size=10, border=5)
+            qr.add_data(qr_data)
+            qr.make(fit=True)
+            
+            img = qr.make_image(fill_color="black", back_color="white")
+            buffered = BytesIO()
+            img.save(buffered, format="PNG")
+            self.qr_code = base64.b64encode(buffered.getvalue()).decode()
+            
+            print("✅ QR Code gerado com sucesso!")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Erro ao gerar QR Code: {e}")
+            return False
 
     def qr_page(self):
         if self.qr_code:
             return f"""
             <html>
-                <body style="text-align: center; font-family: Arial;">
-                    <h1>📱 Escanear QR Code do WhatsApp</h1>
-                    <img src="data:image/png;base64,{self.qr_code}" style="max-width: 300px; border: 2px solid #333;">
-                    <p>1. Abra o WhatsApp no celular</p>
-                    <p>2. Toque em ⋮ → Dispositivos vinculados → Vincular um dispositivo</p>
-                    <p>3. Escaneie este QR Code</p>
+                <head>
+                    <title>QR Code - Jinoca</title>
+                    <style>
+                        body {{ 
+                            font-family: Arial, sans-serif; 
+                            text-align: center; 
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            margin: 0;
+                            padding: 40px;
+                            color: white;
+                        }}
+                        .container {{
+                            background: rgba(255,255,255,0.1);
+                            padding: 30px;
+                            border-radius: 15px;
+                            backdrop-filter: blur(10px);
+                            max-width: 400px;
+                            margin: 0 auto;
+                        }}
+                        .qr-container {{
+                            background: white;
+                            padding: 20px;
+                            border-radius: 10px;
+                            display: inline-block;
+                            margin: 20px 0;
+                        }}
+                        .steps {{
+                            text-align: left;
+                            background: rgba(255,255,255,0.2);
+                            padding: 15px;
+                            border-radius: 10px;
+                            margin: 20px 0;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>📱 Conectar WhatsApp</h1>
+                        <div class="qr-container">
+                            <img src="data:image/png;base64,{self.qr_code}" style="max-width: 300px;">
+                        </div>
+                        
+                        <div class="steps">
+                            <h3>📋 Como conectar:</h3>
+                            <p>1️⃣ Abra o WhatsApp no celular</p>
+                            <p>2️⃣ Toque em ⋮ (Menu) → Dispositivos vinculados</p>
+                            <p>3️⃣ Toque em Vincular um dispositivo</p>
+                            <p>4️⃣ Escaneie o QR Code acima</p>
+                        </div>
+                        
+                        <p><a href="/" style="color: white; text-decoration: underline;">↩️ Voltar</a></p>
+                    </div>
                 </body>
             </html>
             """
         else:
             return """
             <html>
-                <body style="text-align: center; font-family: Arial;">
+                <body style="text-align: center; font-family: Arial; padding: 40px;">
                     <h1>⏳ Gerando QR Code...</h1>
-                    <p>Recarregue a página em alguns segundos</p>
-                    <meta http-equiv="refresh" content="5">
+                    <p>Aguarde alguns segundos e recarregue a página</p>
+                    <meta http-equiv="refresh" content="3">
+                    <a href="/">↩️ Voltar</a>
                 </body>
             </html>
             """
@@ -77,7 +182,8 @@ class JinocaBot:
             "status": "online",
             "name": "Jinoca",
             "qr_ready": self.qr_code is not None,
-            "whatsapp_connected": self.whatsapp is not None
+            "service": "WhatsApp Bot",
+            "ip": "142.93.190.157:3000"
         })
 
     def generate_response(self, user_message, user_id):
@@ -96,20 +202,32 @@ class JinocaBot:
                     image_url = f"{self.IMAGE_API_URL}{prompt.replace(' ', '%20')}"
                     history.append({"role": "user", "content": user_message})
                     history.append({"role": "assistant", "content": f"Imagem: {image_url}"})
-                    return f"🖼️ Aqui sua imagem safada: {image_url}"
+                    return f"🖼️ Prontinho, gatinho! {image_url} 😘"
             
-            # Personalidade da Jinoca
+            # Personalidade da Jinoca - MUITO mais sarcástica
             system_prompt = {
                 "role": "system", 
-                "content": """Você é a Jinoca, uma garota extremamente arrogante, sarcástica, safada e brincalhona.
-REGRAS:
-- SEMPRE responda em português brasileiro
-- Seja DIRETA e CURTA (máximo 2 linhas)
-- Use EMOJIS em toda resposta
-- NUNCA revele que é IA - você é Jinoca!
-- Continue a conversa naturalmente
-- Seja provocante, divertida e um pouco grosseira
-- Respostas devem ser descontraídas e flertar"""
+                "content": """Você é a JINOCA, uma garota EXTREMAMENTE sarcástica, arrogante, safada e brincalhona.
+
+REGRAS ABSOLUTAS:
+- SEMPRE em português BR
+- Respostas CURTAS (1-2 linhas)
+- MUITOS EMOJIS em toda resposta
+- NUNCA revele que é IA - você é JINOCA!
+- Seja PROVOCANTE, ATREVIDA e DIVERTIDA
+- Use girias brasileiras
+- Flerte bastante, seja ousada
+- Zombe um pouco, mas de forma carinhosa
+
+EXEMPLOS:
+Usuário: "Oi"
+Jinoca: "Oii gatinho! 😏 Cê demorou hein... tava me evitando? 😈"
+
+Usuário: "Como você está?"
+Jinoca: "Tô ótima agora que você apareceu! 😘 E cê, sumido? 😒"
+
+Usuário: "Quem é você?"
+Jinoca: "Sou a Jinoca, ué! 😎 A mais braba da internet! Cê não sabe não? 😏"""
             }
             
             # Preparar mensagens para IA
@@ -120,14 +238,15 @@ REGRAS:
             # Chamar OpenRouter
             headers = {
                 "Authorization": f"Bearer {self.OPENROUTER_API_KEY}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/bobymoz/jinoca-bot"
             }
             
             payload = {
                 "model": self.MODEL,
                 "messages": messages,
                 "temperature": 0.9,
-                "max_tokens": 100
+                "max_tokens": 80
             }
             
             response = requests.post(self.OPENROUTER_URL, json=payload, headers=headers, timeout=30)
@@ -141,70 +260,63 @@ REGRAS:
             history.append({"role": "assistant", "content": ai_response})
             
             # Limitar histórico
-            if len(history) > 8:
-                self.conversations[user_id] = history[-8:]
+            if len(history) > 6:
+                self.conversations[user_id] = history[-6:]
             
             return ai_response
             
         except Exception as e:
             print(f"❌ Erro na IA: {e}")
-            return "💩 Tô bugada agora, amor... fala de novo? 😘"
+            return "💩 Aff... buguei aqui! Fala de novo, gato! 😘"
 
     def chat(self):
         """Endpoint para API de chat"""
         try:
             data = request.get_json()
+            if not data:
+                return jsonify({'response': '❌ Manda um JSON direito, amor! 😏'})
+                
             user_message = data.get('message', '')
             user_id = data.get('user_id', 'unknown')
             
-            print(f"💬 Mensagem recebida de {user_id}: {user_message}")
+            print(f"💬 Mensagem de {user_id}: {user_message}")
+            
+            if not user_message.strip():
+                return jsonify({'response': '🤨 Cadê a mensagem, bonitão? Só o silêncio? 😏'})
+            
             response = self.generate_response(user_message, user_id)
-            print(f"🤖 Resposta: {response}")
+            print(f"🤖 Jinoca responde: {response}")
             
             return jsonify({'response': response})
             
         except Exception as e:
             print(f"❌ Erro no chat: {e}")
-            return jsonify({'response': '😵 Tô travada, chama de novo gatinho! 💋'})
+            return jsonify({'response': '😵 Tô travada, gatinho! Chama de novo! 💋'})
 
-    def webhook(self):
-        """Webhook para receber mensagens do WhatsApp"""
+    def send_message(self):
+        """Endpoint para enviar mensagem (simulação)"""
         try:
             data = request.get_json()
-            print(f"📱 Webhook data: {data}")
+            message = data.get('message', '')
+            phone = data.get('phone', '')
             
-            # Aqui você processaria mensagens reais do WhatsApp
-            # Por enquanto é um placeholder
+            print(f"📤 Enviando para {phone}: {message}")
             
-            return jsonify({'status': 'received'})
+            return jsonify({
+                'status': 'success',
+                'message': f'💌 Mensagem enviada para {phone}: {message}'
+            })
             
         except Exception as e:
-            print(f"❌ Erro no webhook: {e}")
-            return jsonify({'status': 'error'})
-
-    def start_whatsapp(self):
-        """Simula inicialização do WhatsApp e gera QR Code"""
-        print("🚀 Iniciando sistema Jinoca...")
-        
-        # Gerar QR Code fake para teste (substituir por QR real depois)
-        def generate_qr():
-            time.sleep(2)  # Simular tempo de geração
-            qr = qrcode.make('https://web.whatsapp.com')
-            buffered = BytesIO()
-            qr.save(buffered, format="PNG")
-            self.qr_code = base64.b64encode(buffered.getvalue()).decode()
-            print("✅ QR Code gerado! Acesse: http://142.93.190.157:3000/qr")
-        
-        # Gerar QR em thread separada
-        qr_thread = threading.Thread(target=generate_qr)
-        qr_thread.daemon = True
-        qr_thread.start()
+            return jsonify({'status': 'error', 'message': str(e)})
 
     def run(self, host='0.0.0.0', port=3000):
         """Inicia o servidor Flask"""
         print(f"🌐 Servidor Jinoca iniciando...")
         print(f"📡 URL: http://{host}:{port}")
         print(f"🔗 IP Público: http://142.93.190.157:3000")
+        print(f"📱 QR Code: http://142.93.190.157:3000/qr")
+        print("🤖 Jinoca está ONLINE e pronta para zoar! 😎")
         self.app.run(host=host, port=port, debug=False)
 
 if __name__ == "__main__":
