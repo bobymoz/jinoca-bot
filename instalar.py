@@ -1,6 +1,4 @@
 
-## 2. **instalar.py** (ARQUIVO PRINCIPAL DE INSTALAÇÃO)
-```python
 #!/usr/bin/env python3
 import os
 import subprocess
