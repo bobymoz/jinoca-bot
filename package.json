@@ -1,0 +1,24 @@
+{
+  "name": "jinoca-vps-bot",
+  "version": "1.0.0",
+  "description": "Bot WhatsApp 24/7 com Baileys e PM2",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": "18.x.x"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.2",
+    "axios": "^1.6.8",
+    "express": "^4.19.2",
+    "pino": "^9.1.0",
+    "qrcode": "^1.5.3",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "pino-pretty": "^11.0.0"
+  }
+}

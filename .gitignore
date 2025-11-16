@@ -1,0 +1,12 @@
+# Dependências
+node_modules
+
+# Logs
+*.log
+npm-debug.log
+
+# Arquivos de sessão do Baileys
+auth_info/
+
+# Banco de dados
+*.db
