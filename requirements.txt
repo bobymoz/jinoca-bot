@@ -1,5 +1,0 @@
-flask==2.3.3
-requests==2.31.0
-qrcode==7.4.2
-pillow==10.0.1
-pywhatkit==5.4
