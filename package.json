@@ -1,16 +1,16 @@
 {
   "name": "jinoca-bot",
   "version": "1.0.0",
-  "description": "Bot WhatsApp Jinoca com Venom",
+  "description": "Bot WhatsApp Jinoca usando Baileys",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js",
     "install-all": "npm install"
   },
   "dependencies": {
-    "venom-bot": "^4.3.7",
+    "@whiskeysockets/baileys": "^6.4.0",
     "express": "^4.18.2",
     "axios": "^1.6.0",
-    "qrcode": "^1.5.3"
+    "qrcode-terminal": "^0.12.0"
   }
 }
