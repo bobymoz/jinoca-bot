@@ -1,7 +1,7 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const venom = require('venom-bot');
 const express = require('express');
 const axios = require('axios');
+const qrcode = require('qrcode');
 
 const app = express();
 const port = 3000;
@@ -14,81 +14,11 @@ const MODEL = "cognitivecomputations/dolphin-mistral-24b-venice-edition:free";
 
 // Memória de conversas
 let conversations = {};
-
-// Configurar cliente WhatsApp
-const client = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: {
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
-        ]
-    }
-});
-
-let qrCodeUrl = null;
+let qrCodeBase64 = null;
+let client = null;
 let isConnected = false;
 
-// Gerar QR Code
-client.on('qr', (qr) => {
-    console.log('\n📱 QR CODE PARA WHATSAPP:');
-    qrcode.generate(qr, { small: true });
-    
-    // Converter QR para URL base64 para web
-    const qrImage = qrcode.toDataURL(qr);
-    qrCodeUrl = qrImage;
-    
-    console.log('\n🌐 ACESSE: http://66.70.233.64:3000/qr');
-    console.log('⏳ Aguardando scan do QR Code...');
-});
-
-// Quando conectar
-client.on('ready', () => {
-    isConnected = true;
-    console.log('\n✅ WHATSAPP CONECTADO!');
-    console.log('🤖 Jinoca está ONLINE respondendo automaticamente!');
-    console.log('💬 Todas as mensagens serão respondidas automaticamente');
-});
-
-// Quando desconectar
-client.on('disconnected', (reason) => {
-    isConnected = false;
-    console.log('\n❌ WhatsApp desconectado:', reason);
-});
-
-// Responder mensagens automaticamente
-client.on('message', async (message) => {
-    // Não responder suas próprias mensagens
-    if (message.fromMe) return;
-    
-    // Não responder mensagens de status
-    if (message.isStatus) return;
-    
-    const user_id = message.from;
-    const user_message = message.body;
-    
-    console.log(`\n💬 Mensagem de ${user_id}: ${user_message}`);
-    
-    try {
-        // Gerar resposta da IA
-        const response = await generateAIResponse(user_message, user_id);
-        
-        // Enviar resposta
-        await message.reply(response);
-        console.log(`🤖 Jinoca respondeu: ${response}`);
-        
-    } catch (error) {
-        console.error('❌ Erro ao responder:', error);
-        await message.reply('😵 Tô bugada agora, amor... tenta de novo! 😘');
-    }
-});
+app.use(express.json());
 
 // Função para gerar resposta da IA
 async function generateAIResponse(user_message, user_id) {
@@ -138,7 +68,7 @@ Jinoca: "Sou a Jinoca, ué! 😎 A mais braba da internet! Não conhece? 😏"`
         
         // Preparar mensagens
         const messages = [system_prompt];
-        messages.push(...history.slice(-4)); // Últimas 2 conversas
+        messages.push(...history.slice(-4));
         messages.push({"role": "user", "content": user_message});
         
         // Chamar OpenRouter
@@ -174,17 +104,89 @@ Jinoca: "Sou a Jinoca, ué! 😎 A mais braba da internet! Não conhece? 😏"`
     }
 }
 
-// Inicializar WhatsApp
-client.initialize();
+// Iniciar Venom Bot
+venom
+    .create(
+        'jinoca-bot',
+        (base64Qr, asciiQR, attempts, urlCode) => {
+            console.log('\n📱 QR CODE PARA WHATSAPP:');
+            
+            // Converter QR para base64 para web
+            qrCodeBase64 = base64Qr;
+            
+            // Mostrar QR no terminal
+            console.log(asciiQR);
+            console.log('\n🌐 ACESSE: http://66.70.233.64:3000/qr');
+            console.log('⏳ Aguardando scan do QR Code...');
+        },
+        (statusSession, session) => {
+            console.log('Status da sessão:', statusSession);
+        },
+        {
+            headless: true,
+            devtools: false,
+            useChrome: false,
+            debug: false,
+            logQR: true,
+            browserArgs: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process',
+                '--disable-gpu',
+                '--no-default-browser-check',
+                '--disable-extensions',
+                '--disable-translate'
+            ],
+            disableSpins: true,
+            disableWelcome: true,
+            updatesLog: false,
+            autoClose: 0
+        }
+    )
+    .then((venomClient) => {
+        client = venomClient;
+        isConnected = true;
+        console.log('\n✅ WHATSAPP CONECTADO!');
+        console.log('🤖 Jinoca está ONLINE respondendo automaticamente!');
+        
+        // Escutar mensagens
+        client.onMessage(async (message) => {
+            // Não responder suas próprias mensagens
+            if (message.isGroupMsg || message.fromMe) return;
+            
+            const user_id = message.from;
+            const user_message = message.body;
+            
+            console.log(`\n💬 Mensagem de ${user_id}: ${user_message}`);
+            
+            try {
+                // Gerar resposta da IA
+                const response = await generateAIResponse(user_message, user_id);
+                
+                // Enviar resposta
+                await client.sendText(message.from, response);
+                console.log(`🤖 Jinoca respondeu: ${response}`);
+                
+            } catch (error) {
+                console.error('❌ Erro ao responder:', error);
+                await client.sendText(message.from, '😵 Tô bugada agora, amor... tenta de novo! 😘');
+            }
+        });
+    })
+    .catch((error) => {
+        console.log('❌ Erro ao iniciar Venom:', error);
+    });
 
-// Configurar servidor web
-app.use(express.json());
-
+// Servidor Web
 app.get('/', (req, res) => {
     res.send(`
     <html>
         <head>
-            <title>Jinoca Bot</title>
+            <title>Jinoca Bot - Venom</title>
             <style>
                 body { 
                     font-family: Arial, sans-serif; 
@@ -224,8 +226,8 @@ app.get('/', (req, res) => {
         </head>
         <body>
             <div class="container">
-                <h1>🤖 Jinoca Bot</h1>
-                <p>Seu WhatsApp com Personalidade</p>
+                <h1>🤖 Jinoca Bot - VENOM</h1>
+                <p>Leve e eficiente - 1GB RAM</p>
                 
                 <div class="status">
                     <h2>📊 Status</h2>
@@ -235,6 +237,7 @@ app.get('/', (req, res) => {
                         </span>
                     </p>
                     <p><strong>IA Jinoca:</strong> <span class="connected">● ONLINE</span></p>
+                    <p><strong>RAM:</strong> OTIMIZADO PARA 1GB</p>
                     <p><strong>IP:</strong> 66.70.233.64:3000</p>
                 </div>
                 
@@ -242,11 +245,11 @@ app.get('/', (req, res) => {
                 <a href="/status" class="btn">📊 Status JSON</a>
                 
                 <div style="margin-top: 30px; background: rgba(255,255,255,0.2); padding: 20px; border-radius: 10px;">
-                    <h3>💡 Como Funciona:</h3>
-                    <p>1. <strong>Conecte seu WhatsApp</strong> com o QR Code</p>
-                    <p>2. <strong>Jinoca responderá automaticamente</strong> todas as mensagens</p>
-                    <p>3. <strong>Personalidade sarcástica e safada</strong></p>
-                    <p>4. <strong>Use !imagem texto</strong> para gerar imagens</p>
+                    <h3>🚀 Vantagens do Venom:</h3>
+                    <p>✅ <strong>Leve</strong> - Consome pouca RAM</p>
+                    <p>✅ <strong>Rápido</strong> - Sem interface gráfica</p>
+                    <p>✅ <strong>Estável</strong> - Ideal para VPS fraco</p>
+                    <p>✅ <strong>Automático</strong> - Responde todas as mensagens</p>
                 </div>
             </div>
             
@@ -261,13 +264,13 @@ app.get('/', (req, res) => {
 });
 
 app.get('/qr', (req, res) => {
-    if (qrCodeUrl) {
+    if (qrCodeBase64) {
         res.send(`
         <html>
             <body style="text-align: center; font-family: Arial; background: #f0f0f0; padding: 40px;">
                 <div style="background: white; padding: 30px; border-radius: 15px; display: inline-block;">
                     <h1>📱 QR Code WhatsApp</h1>
-                    <img src="${qrCodeUrl}" style="max-width: 300px;">
+                    <img src="${qrCodeBase64}" style="max-width: 300px;">
                     <p>Escaneie com seu WhatsApp</p>
                     <p><a href="/">↩️ Voltar</a></p>
                 </div>
@@ -283,23 +286,15 @@ app.get('/status', (req, res) => {
     res.json({
         status: 'online',
         whatsapp_connected: isConnected,
-        qr_ready: qrCodeUrl !== null,
-        service: 'Jinoca Auto-responder'
+        qr_ready: qrCodeBase64 !== null,
+        service: 'Jinoca - Venom Bot',
+        ram_optimized: true
     });
-});
-
-app.post('/chat', async (req, res) => {
-    try {
-        const { message, user_id } = req.body;
-        const response = await generateAIResponse(message, user_id || 'web_user');
-        res.json({ response });
-    } catch (error) {
-        res.json({ response: '❌ Erro no servidor' });
-    }
 });
 
 // Iniciar servidor
 app.listen(port, '0.0.0.0', () => {
     console.log(`\n🌐 Servidor web: http://66.70.233.64:${port}`);
-    console.log('🤖 Iniciando bot Jinoca...');
+    console.log('🤖 Iniciando bot Jinoca com Venom...');
+    console.log('💾 OTIMIZADO PARA VPS COM 1GB RAM');
 });
