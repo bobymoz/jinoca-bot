@@ -37,7 +37,7 @@ def main():
     
     print("✅ INSTALAÇÃO CONCLUÍDA!")
     print("📱 Para iniciar: python3 jinoca_bot.py")
-    print("🌐 Acesse: http://142.93.190.157:3000")
+    print("🌐 Acesse: http://66.70.233.64:3000")
 
 if __name__ == "__main__":
     main()
